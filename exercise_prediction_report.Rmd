@@ -6,10 +6,10 @@ output: html_document
 ---
 
 ## Loading Data and Exploratory Analysis
-Start by downloading the dataset. This data for this project are available here: 
+For this report we start by downloading the data set. The data for this project are available here: 
 Training: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
 Validation Dataset: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
-The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. In order to load the data set we use read.csv and set the na.strings parameter so that the empty and '#DIV/0!' entries will be set as NA values.
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. The dataset is the Human Activity Recognition data set. It was collected by 6 participants wearing sensors on the arm, forearm, belt and a dumbbell. We are going to use this dataset to train a model to predict how well someone is doing a particular exercise based on the motions they are going through. We start by loading some required libraries.
 
 ```{r load_dependencies, warning=FALSE, message=FALSE}
 library(caret)
@@ -17,7 +17,7 @@ require(randomForest)
 require(gbm)
 require(plyr)
 ```
-
+In order to load the data set we use read.csv and set the na.strings parameter so that the empty and '#DIV/0!' entries will be set as NA values.
 ```{r load_data, cache=TRUE}
 train <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",na.strings=c("NA","#DIV/0!",""), header = T)
 valid <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",na.strings=c("NA","#DIV/0!",""), header = T)
@@ -50,6 +50,12 @@ valid <- valid[,!na_cols]
 names(train)
 dim(train)
 dim(valid)
+```
+
+In order to get a feel for how the features look in the feature vector we will plot a density feature plot for any features that contain "_belt". We could do this for all the features and see where the majority of the data per class is located. There doesn't seem to be any strong outliers that we need to eliminate so we can continue with this selection of features. Note that we only do this sort of exploratory analysis on the training data.
+
+```{r}
+featurePlot(x=train[, grep("_belt", names(train))], y=train$classe, plot="density", scales=list(x=list(relation="free"), y=list(relation="free")), auto.key=list(columns=5))
 ```
 
 The last thing we should do is create a data set partition. We want to use about 70% for training and 30% for testing. In order to make this reproducible we set the seed at this point.
