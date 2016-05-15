@@ -1,0 +1,119 @@
+---
+title: "Quality of Exercise Prediction"
+author: "B Porter"
+date: "May 13, 2016"
+output: html_document
+---
+
+## Loading Data and Exploratory Analysis
+Start by downloading the dataset. This data for this project are available here: 
+Training: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+Validation Dataset: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. In order to load the data set we use read.csv and set the na.strings parameter so that the empty and '#DIV/0!' entries will be set as NA values.
+
+```{r load_dependencies, warning=FALSE, message=FALSE}
+library(caret)
+require(randomForest)
+require(gbm)
+require(plyr)
+```
+
+```{r load_data, cache=TRUE}
+train <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",na.strings=c("NA","#DIV/0!",""), header = T)
+valid <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",na.strings=c("NA","#DIV/0!",""), header = T)
+dim(train)
+dim(valid)
+```
+I used the str() and summary() functions to do some exploratory data analysis. I performed the exploratory data analysis on the training set so that I do not incorporate any of the validation set into the design. I am not going to print all this data into this portion because there are quite a few variables and can be difficult to read.
+
+```{r view_data, eval=F, echo=T}
+str(train)
+summary(train)
+
+```
+
+The next step that we need to perform is some cleaning of the data. In order to predict we are supposed to use data from the accelerometers on the belt, forearm, arm and dumbell. To start we remove the first seven columns as they are meta-data about the exercise such as the timestamp and user who performed the activity. We do not want this data to be included. We want to use accelerometer data only. It is important that we perform the same data transformations on both the training and the test data.
+
+```{r cleanData}
+
+train <- train[,-(1:7)]
+valid <- valid[,-(1:7)]
+
+nearZVar <- nearZeroVar(train)
+train <- train[,-nearZVar]
+valid <- valid[,-nearZVar]
+
+na_cols <- (colSums(is.na(train)) > 0)
+train <- train[,!na_cols]
+valid <- valid[,!na_cols]
+
+names(train)
+dim(train)
+dim(valid)
+```
+
+The last thing we should do is create a data set partition. We want to use about 70% for training and 30% for testing. In order to make this reproducible we set the seed at this point.
+
+```{r createDataPartition}
+
+set.seed(336338)
+inTrain <- createDataPartition(y=train$classe, p=0.7, list=FALSE)
+train <- train[inTrain, ]
+test <- train[-inTrain, ]
+```
+
+Now the train dataset and test dataset are ready to build a predictive model. 
+
+## Prediction Model
+
+In this report we are going to experiment with boosting and random forests and see which of those two would give us the best accuracy.
+
+### Cross Validation
+
+We want to use cross validation with both of our models. This will help prevent overfitting. We do have a large data set but approaches such as random forests are prone to overfitting. For this report we will use 10 fold cross validation. The following code section shows how to set up cross validation for use in caret train.
+
+```{r cross_v}
+tr_control <- trainControl(method='cv', number = 5)
+```
+
+### Generalized Boosting Regression Model
+We will start with boosting. This is going to try and fit a lot of weak predictors and then weight them and combine them. By doing this we should end up with a much stronger predictor. Notice that the trControl parameter is set using the variable we created earlier telling train() to do cross validation while training.
+
+
+```{r gbm, cache=T, message=FALSE}
+model_gbm <- train(classe ~ .,  data=train, trControl=tr_control,  method='gbm', verbose=F)
+```
+
+
+Now let's use the boosting model we trained to predict on the test set we split off our original training set. This will give us an idea about how well this model is going to perform on new data. 
+```{r predict_gbm}
+predict_gbm <- predict(model_gbm, newdata=test)
+cm_gbm <- confusionMatrix(predict_gbm, test$classe)
+print(cm_gbm)
+```
+
+### Random Forests
+
+Next let's compare the random forest method. Again we are going to use the same train control to do cross validation.
+
+```{r rf, cache=T}
+model_rf <- train(classe ~ .,  data=train, trControl=tr_control,  method='rf', verbose=F)
+```
+
+Now we use the random forests model to predict on the same testing set we used to evaluate the boosting method.
+```{r predict_rf}
+predict_rf <- predict(model_rf, newdata=test)
+cm_rf <- confusionMatrix(predict_rf, test$classe)
+print(cm_rf)
+```
+
+##Prediction
+The final step in this report is to chose the best model and then run prediction on the validation set. I chose the random forests prediction model. It performed better on the test set compared to boosting. The following code runs prediction on the validation set loaded from the pml_testing.csv.
+```{r pred_val}
+predict_valid <- predict(model_rf, newdata=valid)
+predict_valid_df <- data.frame(problem_id=valid$problem_id, predicted=predict_valid)
+print(predict_valid_df)
+```
+
+##Summary
+The first part of this report we loaded the data and cleaned it by removing meta-data. I also used nearZeroVar() to remove features that have almost no variance. These features do not contribute much to a prediction model. I set up the caret train function to use 5 fold cross validation to help avoid overfitting in the models. I also removed features that contain NA values. Next I compared two models on this data set. The first model was a boosting model(gbm) and it preformed very well with accuracy of `r cm_gbm$overall[1]`. The next model was random forests. This model also was able to learn very well with an accuracy of `r cm_rf$overall[1]`. I then took the model with the best accuracy which was random forests and applied that to the validation set.    
