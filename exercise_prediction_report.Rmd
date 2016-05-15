@@ -52,7 +52,7 @@ dim(train)
 dim(valid)
 ```
 
-In order to get a feel for how the features look in the feature vector we will plot a density feature plot for any features that contain "_belt". We could do this for all the features and see where the majority of the data per class is located. There doesn't seem to be any strong outliers that we need to eliminate so we can continue with this selection of features. Note that we only do this sort of exploratory analysis on the training data.
+In order to get a feel for how the features look in the feature vector we will plot a density feature plot for any features that contain "_belt". We could do this for all the features and see where the majority of the data per class is located. There doesn't seem to be any strong outliers that we need to eliminate so we can continue with this selection of features. Note that we only do this sort of exploratory analysis on the training data set.
 
 ```{r}
 featurePlot(x=train[, grep("_belt", names(train))], y=train$classe, plot="density", scales=list(x=list(relation="free"), y=list(relation="free")), auto.key=list(columns=5))
